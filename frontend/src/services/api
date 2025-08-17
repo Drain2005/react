@@ -1,0 +1,49 @@
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:3001/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Intercepteur pour gérer les erreurs globalement
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('Erreur API:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Services pour les utilisateurs
+export const utilisateurService = {
+  getAll: () => api.get('/utilisateurs'),
+  getById: (id) => api.get(`/utilisateurs/${id}`),
+  create: (data) => api.post('/utilisateurs', data),
+  update: (id, data) => api.put(`/utilisateurs/${id}`, data),
+  delete: (id) => api.delete(`/utilisateurs/${id}`),
+};
+
+// Services pour les sauvegardes
+export const sauvegardeService = {
+  getAll: () => api.get('/sauvegardes'),
+  getById: (id) => api.get(`/sauvegardes/${id}`),
+  getByUser: (userId) => api.get(`/sauvegardes/user/${userId}`),
+  create: (data) => api.post('/sauvegardes', data),
+  updateStatus: (id, statutId) => api.put(`/sauvegardes/${id}/statut`, { id_statut: statutId }),
+  delete: (id) => api.delete(`/sauvegardes/${id}`),
+};
+
+// Services pour les statuts
+export const statutService = {
+  getAll: () => api.get('/statuts'),
+  getById: (id) => api.get(`/statuts/${id}`),
+  create: (data) => api.post('/statuts', data),
+  update: (id, data) => api.put(`/statuts/${id}`, data),
+  delete: (id) => api.delete(`/statuts/${id}`),
+};
+
+export default api;

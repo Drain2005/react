@@ -1,0 +1,266 @@
+import React, { useState, useEffect } from 'react';
+import { sauvegardeService, utilisateurService, statutService } from '../services/api';
+
+const Sauvegardes = () => {
+  const [sauvegardes, setSauvegardes] = useState([]);
+  const [utilisateurs, setUtilisateurs] = useState([]);
+  const [statuts, setStatuts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  const [formData, setFormData] = useState({
+    taille: '',
+    id_utilisateur: '',
+    id_statut: ''
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [sauvegardesRes, utilisateursRes, statutsRes] = await Promise.all([
+        sauvegardeService.getAll(),
+        utilisateurService.getAll(),
+        statutService.getAll(),
+      ]);
+      
+      setSauvegardes(sauvegardesRes.data);
+      setUtilisateurs(utilisateursRes.data);
+      setStatuts(statutsRes.data);
+    } catch (error) {
+      showMessage('Erreur lors du chargement des données', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showMessage = (text, type) => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 5000);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await sauvegardeService.create({
+        ...formData,
+        taille: parseInt(formData.taille),
+        id_utilisateur: parseInt(formData.id_utilisateur),
+        id_statut: parseInt(formData.id_statut) || 1
+      });
+      
+      showMessage('Sauvegarde créée avec succès', 'success');
+      resetForm();
+      fetchData();
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message || 'Erreur lors de la création',
+        'error'
+      );
+    }
+  };
+
+  const handleStatusChange = async (id, newStatusId) => {
+    try {
+      await sauvegardeService.updateStatus(id, newStatusId);
+      showMessage('Statut mis à jour avec succès', 'success');
+      fetchData();
+    } catch (error) {
+      showMessage('Erreur lors de la mise à jour du statut', 'error');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette sauvegarde ?')) {
+      try {
+        await sauvegardeService.delete(id);
+        showMessage('Sauvegarde supprimée avec succès', 'success');
+        fetchData();
+      } catch (error) {
+        showMessage('Erreur lors de la suppression', 'error');
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ taille: '', id_utilisateur: '', id_statut: '' });
+    setShowForm(false);
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const formatFileSize = (bytes) => {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString('fr-FR');
+  };
+
+  const getStatusClass = (status) => {
+    switch (status.toLowerCase()) {
+      case 'en cours':
+        return 'status-en-cours';
+      case 'terminé':
+        return 'status-termine';
+      case 'échoué':
+        return 'status-echoue';
+      case 'en attente':
+        return 'status-en-attente';
+      default:
+        return 'status-en-attente';
+    }
+  };
+
+  if (loading) {
+    return <div>Chargement des sauvegardes...</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Gestion des Sauvegardes</h1>
+        <button 
+          className="btn btn-success" 
+          onClick={() => setShowForm(true)}
+        >
+          Nouvelle Sauvegarde
+        </button>
+      </div>
+
+      {message.text && (
+        <div className={`alert alert-${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="card">
+          <h2>Nouvelle sauvegarde</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="id_utilisateur">Utilisateur:</label>
+              <select
+                id="id_utilisateur"
+                name="id_utilisateur"
+                value={formData.id_utilisateur}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="">Sélectionnez un utilisateur</option>
+                {utilisateurs.map((user) => (
+                  <option key={user.id_utilisateur} value={user.id_utilisateur}>
+                    {user.nom} ({user.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="taille">Taille (en bytes):</label>
+              <input
+                type="number"
+                id="taille"
+                name="taille"
+                value={formData.taille}
+                onChange={handleInputChange}
+                required
+                min="1"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="id_statut">Statut:</label>
+              <select
+                id="id_statut"
+                name="id_statut"
+                value={formData.id_statut}
+                onChange={handleInputChange}
+              >
+                <option value="">Statut par défaut (En cours)</option>
+                {statuts.map((statut) => (
+                  <option key={statut.id_statut} value={statut.id_statut}>
+                    {statut.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button type="submit" className="btn btn-success">
+              Créer
+            </button>
+            <button type="button" className="btn" onClick={resetForm}>
+              Annuler
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className="card">
+        <h2>Liste des sauvegardes</h2>
+        {sauvegardes.length > 0 ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Utilisateur</th>
+                <th>Taille</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sauvegardes.map((sauvegarde) => (
+                <tr key={sauvegarde.id_sauvegarde}>
+                  <td>{sauvegarde.id_sauvegarde}</td>
+                  <td>{formatDate(sauvegarde.date_sauvegarde)}</td>
+                  <td>{sauvegarde.nom_utilisateur}</td>
+                  <td>{formatFileSize(sauvegarde.taille)}</td>
+                  <td>
+                    <select
+                      value={
+                        statuts.find(s => s.nom.toLowerCase() === sauvegarde.statut.toLowerCase())?.id_statut || ''
+                      }
+                      onChange={(e) => handleStatusChange(sauvegarde.id_sauvegarde, e.target.value)}
+                      className={`status-badge ${getStatusClass(sauvegarde.statut)}`}
+                    >
+                      {statuts.map((statut) => (
+                        <option key={statut.id_statut} value={statut.id_statut}>
+                          {statut.nom}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <button 
+                      className="btn btn-danger" 
+                      onClick={() => handleDelete(sauvegarde.id_sauvegarde)}
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>Aucune sauvegarde trouvée.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Sauvegardes;

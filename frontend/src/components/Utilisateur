@@ -1,0 +1,214 @@
+import React, { useState, useEffect } from 'react';
+import { utilisateurService } from '../services/api';
+
+const Utilisateurs = () => {
+  const [utilisateurs, setUtilisateurs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  const [formData, setFormData] = useState({
+    nom: '',
+    email: '',
+    mot_de_passe: ''
+  });
+
+  useEffect(() => {
+    fetchUtilisateurs();
+  }, []);
+
+  const fetchUtilisateurs = async () => {
+    try {
+      setLoading(true);
+      const response = await utilisateurService.getAll();
+      setUtilisateurs(response.data);
+    } catch (error) {
+      showMessage('Erreur lors du chargement des utilisateurs', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showMessage = (text, type) => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 5000);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        // Mise à jour (sans mot de passe)
+        const { mot_de_passe, ...updateData } = formData;
+        await utilisateurService.update(editingUser.id_utilisateur, updateData);
+        showMessage('Utilisateur mis à jour avec succès', 'success');
+      } else {
+        // Création
+        await utilisateurService.create(formData);
+        showMessage('Utilisateur créé avec succès', 'success');
+      }
+      
+      resetForm();
+      fetchUtilisateurs();
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message || 'Erreur lors de l\'opération',
+        'error'
+      );
+    }
+  };
+
+  const handleEdit = (utilisateur) => {
+    setEditingUser(utilisateur);
+    setFormData({
+      nom: utilisateur.nom,
+      email: utilisateur.email,
+      mot_de_passe: ''
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+      try {
+        await utilisateurService.delete(id);
+        showMessage('Utilisateur supprimé avec succès', 'success');
+        fetchUtilisateurs();
+      } catch (error) {
+        showMessage('Erreur lors de la suppression', 'error');
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ nom: '', email: '', mot_de_passe: '' });
+    setEditingUser(null);
+    setShowForm(false);
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  if (loading) {
+    return <div>Chargement des utilisateurs...</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Gestion des Utilisateurs</h1>
+        <button 
+          className="btn btn-success" 
+          onClick={() => setShowForm(true)}
+        >
+          Nouvel Utilisateur
+        </button>
+      </div>
+
+      {message.text && (
+        <div className={`alert alert-${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="card">
+          <h2>{editingUser ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'}</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="nom">Nom:</label>
+              <input
+                type="text"
+                id="nom"
+                name="nom"
+                value={formData.nom}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="email">Email:</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            {!editingUser && (
+              <div className="form-group">
+                <label htmlFor="mot_de_passe">Mot de passe:</label>
+                <input
+                  type="password"
+                  id="mot_de_passe"
+                  name="mot_de_passe"
+                  value={formData.mot_de_passe}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            )}
+
+            <button type="submit" className="btn btn-success">
+              {editingUser ? 'Mettre à jour' : 'Créer'}
+            </button>
+            <button type="button" className="btn" onClick={resetForm}>
+              Annuler
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className="card">
+        <h2>Liste des utilisateurs</h2>
+        {utilisateurs.length > 0 ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {utilisateurs.map((utilisateur) => (
+                <tr key={utilisateur.id_utilisateur}>
+                  <td>{utilisateur.id_utilisateur}</td>
+                  <td>{utilisateur.nom}</td>
+                  <td>{utilisateur.email}</td>
+                  <td>
+                    <button 
+                      className="btn" 
+                      onClick={() => handleEdit(utilisateur)}
+                    >
+                      Modifier
+                    </button>
+                    <button 
+                      className="btn btn-danger" 
+                      onClick={() => handleDelete(utilisateur.id_utilisateur)}
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>Aucun utilisateur trouvé.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Utilisateurs;

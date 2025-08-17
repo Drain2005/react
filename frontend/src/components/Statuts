@@ -1,0 +1,214 @@
+import React, { useState, useEffect } from 'react';
+import { statutService } from '../services/api';
+
+const Statuts = () => {
+  const [statuts, setStatuts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingStatut, setEditingStatut] = useState(null);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  const [formData, setFormData] = useState({
+    nom: ''
+  });
+
+  useEffect(() => {
+    fetchStatuts();
+  }, []);
+
+  const fetchStatuts = async () => {
+    try {
+      setLoading(true);
+      const response = await statutService.getAll();
+      setStatuts(response.data);
+    } catch (error) {
+      showMessage('Erreur lors du chargement des statuts', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showMessage = (text, type) => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 5000);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingStatut) {
+        await statutService.update(editingStatut.id_statut, formData);
+        showMessage('Statut mis à jour avec succès', 'success');
+      } else {
+        await statutService.create(formData);
+        showMessage('Statut créé avec succès', 'success');
+      }
+      
+      resetForm();
+      fetchStatuts();
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message || 'Erreur lors de l\'opération',
+        'error'
+      );
+    }
+  };
+
+  const handleEdit = (statut) => {
+    setEditingStatut(statut);
+    setFormData({
+      nom: statut.nom
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce statut ?')) {
+      try {
+        await statutService.delete(id);
+        showMessage('Statut supprimé avec succès', 'success');
+        fetchStatuts();
+      } catch (error) {
+        showMessage('Erreur lors de la suppression', 'error');
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ nom: '' });
+    setEditingStatut(null);
+    setShowForm(false);
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const getStatusClass = (status) => {
+    switch (status.toLowerCase()) {
+      case 'en cours':
+        return 'status-en-cours';
+      case 'terminé':
+        return 'status-termine';
+      case 'échoué':
+        return 'status-echoue';
+      case 'en attente':
+        return 'status-en-attente';
+      default:
+        return 'status-en-attente';
+    }
+  };
+
+  if (loading) {
+    return <div>Chargement des statuts...</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Gestion des Statuts</h1>
+        <button 
+          className="btn btn-success" 
+          onClick={() => setShowForm(true)}
+        >
+          Nouveau Statut
+        </button>
+      </div>
+
+      {message.text && (
+        <div className={`alert alert-${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="card">
+          <h2>{editingStatut ? 'Modifier le statut' : 'Nouveau statut'}</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="nom">Nom du statut:</label>
+              <input
+                type="text"
+                id="nom"
+                name="nom"
+                value={formData.nom}
+                onChange={handleInputChange}
+                required
+                placeholder="Ex: En cours, Terminé, Échoué..."
+              />
+            </div>
+
+            <button type="submit" className="btn btn-success">
+              {editingStatut ? 'Mettre à jour' : 'Créer'}
+            </button>
+            <button type="button" className="btn" onClick={resetForm}>
+              Annuler
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className="card">
+        <h2>Liste des statuts</h2>
+        {statuts.length > 0 ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nom</th>
+                <th>Aperçu</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statuts.map((statut) => (
+                <tr key={statut.id_statut}>
+                  <td>{statut.id_statut}</td>
+                  <td>{statut.nom}</td>
+                  <td>
+                    <span className={`status-badge ${getStatusClass(statut.nom)}`}>
+                      {statut.nom}
+                    </span>
+                  </td>
+                  <td>
+                    <button 
+                      className="btn" 
+                      onClick={() => handleEdit(statut)}
+                    >
+                      Modifier
+                    </button>
+                    <button 
+                      className="btn btn-danger" 
+                      onClick={() => handleDelete(statut.id_statut)}
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>Aucun statut trouvé.</p>
+        )}
+      </div>
+
+      <div className="card">
+        <h3>Information</h3>
+        <p>
+          Les statuts permettent de suivre l'état des sauvegardes. Voici les statuts recommandés :
+        </p>
+        <ul>
+          <li><strong>En attente</strong> : Sauvegarde programmée mais pas encore démarrée</li>
+          <li><strong>En cours</strong> : Sauvegarde en cours d'exécution</li>
+          <li><strong>Terminé</strong> : Sauvegarde terminée avec succès</li>
+          <li><strong>Échoué</strong> : Sauvegarde terminée avec erreur</li>
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+export default Statuts;

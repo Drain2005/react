@@ -1,0 +1,138 @@
+import React, { useState, useEffect } from 'react';
+import { utilisateurService, sauvegardeService, statutService } from '../services/api';
+
+const Dashboard = () => {
+  const [stats, setStats] = useState({
+    utilisateurs: 0,
+    sauvegardes: 0,
+    statuts: 0,
+  });
+  const [recentSauvegardes, setRecentSauvegardes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Récupérer les statistiques
+        const [utilisateursRes, sauvegardesRes, statutsRes] = await Promise.all([
+          utilisateurService.getAll(),
+          sauvegardeService.getAll(),
+          statutService.getAll(),
+        ]);
+
+        setStats({
+          utilisateurs: utilisateursRes.data.length,
+          sauvegardes: sauvegardesRes.data.length,
+          statuts: statutsRes.data.length,
+        });
+
+        // Récupérer les 5 dernières sauvegardes
+        setRecentSauvegardes(sauvegardesRes.data.slice(0, 5));
+        
+      } catch (error) {
+        console.error('Erreur lors du chargement du dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const formatFileSize = (bytes) => {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString('fr-FR');
+  };
+
+  const getStatusClass = (status) => {
+    switch (status.toLowerCase()) {
+      case 'en cours':
+        return 'status-en-cours';
+      case 'terminé':
+        return 'status-termine';
+      case 'échoué':
+        return 'status-echoue';
+      case 'en attente':
+        return 'status-en-attente';
+      default:
+        return 'status-en-attente';
+    }
+  };
+
+  if (loading) {
+    return <div>Chargement du dashboard...</div>;
+  }
+
+  return (
+    <div>
+      <h1>Dashboard - Système de Sauvegarde</h1>
+      
+      {/* Statistiques */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
+        <div className="card" style={{ flex: 1, textAlign: 'center' }}>
+          <h3>Utilisateurs</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#007bff' }}>
+            {stats.utilisateurs}
+          </p>
+        </div>
+        <div className="card" style={{ flex: 1, textAlign: 'center' }}>
+          <h3>Sauvegardes</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#28a745' }}>
+            {stats.sauvegardes}
+          </p>
+        </div>
+        <div className="card" style={{ flex: 1, textAlign: 'center' }}>
+          <h3>Statuts</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ffc107' }}>
+            {stats.statuts}
+          </p>
+        </div>
+      </div>
+
+      {/* Sauvegardes récentes */}
+      <div className="card">
+        <h2>Sauvegardes Récentes</h2>
+        {recentSauvegardes.length > 0 ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Utilisateur</th>
+                <th>Taille</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentSauvegardes.map((sauvegarde) => (
+                <tr key={sauvegarde.id_sauvegarde}>
+                  <td>{sauvegarde.id_sauvegarde}</td>
+                  <td>{formatDate(sauvegarde.date_sauvegarde)}</td>
+                  <td>{sauvegarde.nom_utilisateur}</td>
+                  <td>{formatFileSize(sauvegarde.taille)}</td>
+                  <td>
+                    <span className={`status-badge ${getStatusClass(sauvegarde.statut)}`}>
+                      {sauvegarde.statut}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>Aucune sauvegarde trouvée.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

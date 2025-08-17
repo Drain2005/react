@@ -1,0 +1,47 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+
+const Navbar = () => {
+  const location = useLocation();
+
+  return (
+    <nav className="navbar">
+      <ul>
+        <li>
+          <Link 
+            to="/" 
+            className={location.pathname === '/' ? 'active' : ''}
+          >
+            Dashboard
+          </Link>
+        </li>
+        <li>
+          <Link 
+            to="/utilisateurs" 
+            className={location.pathname === '/utilisateurs' ? 'active' : ''}
+          >
+            Utilisateurs
+          </Link>
+        </li>
+        <li>
+          <Link 
+            to="/sauvegardes" 
+            className={location.pathname === '/sauvegardes' ? 'active' : ''}
+          >
+            Sauvegardes
+          </Link>
+        </li>
+        <li>
+          <Link 
+            to="/statuts" 
+            className={location.pathname === '/statuts' ? 'active' : ''}
+          >
+            Statuts
+          </Link>
+        </li>
+      </ul>
+    </nav>
+  );
+};
+
+export default Navbar;
